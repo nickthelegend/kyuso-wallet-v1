@@ -1,0 +1,161 @@
+import { useState, useEffect } from 'react'
+import { motion, useMotionValue, useTransform } from 'framer-motion'
+import { Check, Shield, X, ArrowRight, Wallet, ShieldAlert } from 'lucide-react'
+import axios from 'axios'
+
+export default function WalletRPC({ session }) {
+    const [params, setParams] = useState(null)
+    const [wallet, setWallet] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+    const [signed, setSigned] = useState(false)
+
+    // Motion values for slider
+    const x = useMotionValue(0)
+    const background = useTransform(x, [0, 200], ["rgba(255, 255, 255, 0.05)", "var(--primary)"])
+    const color = useTransform(x, [0, 200], ["#ffffff", "#000000"])
+
+    useEffect(() => {
+        const searchParams = new URLSearchParams(window.location.search)
+        const type = searchParams.get('type')
+        const data = searchParams.get('data')
+
+        setParams({ type, data: data ? JSON.parse(atob(data)) : null })
+        fetchWallet()
+    }, [])
+
+    const fetchWallet = async () => {
+        try {
+            const { data } = await axios.post('/api/wallet', {}, {
+                headers: { Authorization: `Bearer ${session.access_token}` }
+            })
+            setWallet(data)
+        } catch (err) {
+            setError("Failed to load wallet")
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleResponse = (data) => {
+        if (window.opener) {
+            window.opener.postMessage({ type: 'ALGO_WALLET_RESPONSE', ...data }, '*')
+            window.close()
+        }
+    }
+
+    const handleComplete = () => {
+        if (params.type === 'connect') {
+            handleResponse({ address: wallet.address, name: 'AlgoVault Custodial' })
+        } else if (params.type === 'sign') {
+            // For demo, we just "sign" by returning a dummy hash or the original txn
+            // In a real app, this would call the backend to sign via Intermezzo/Pawn
+            setSigned(true)
+            setTimeout(() => {
+                handleResponse({ signedTxns: params.data.map(() => "dummy_signed_blob") })
+            }, 1000)
+        }
+    }
+
+    const onDragEnd = (_, info) => {
+        if (info.offset.x > 180) {
+            handleComplete()
+        } else {
+            x.set(0)
+        }
+    }
+
+    if (loading) return <div className="page-container center">Loading...</div>
+
+    return (
+        <div className="page-container" style={{ justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="glass"
+                style={{ width: '100%', maxWidth: '400px', padding: '32px', textAlign: 'center' }}
+            >
+                <div style={{ marginBottom: '24px' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '32px', background: 'rgba(0, 255, 163, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                        {params?.type === 'connect' ? <Wallet color="var(--primary)" size={32} /> : <Shield color="var(--primary)" size={32} />}
+                    </div>
+                    <h2 style={{ fontSize: '24px', marginBottom: '8px' }}>
+                        {params?.type === 'connect' ? 'Connect Wallet' : 'Sign Transaction'}
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+                        {params?.type === 'connect'
+                            ? 'Authorize this app to see your wallet address.'
+                            : 'Review and sign the requested transactions.'}
+                    </p>
+                </div>
+
+                <div className="glass" style={{ padding: '16px', marginBottom: '32px', textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>WALLET ADDRESS</p>
+                    <p className="mono" style={{ fontSize: '13px', wordBreak: 'break-all' }}>{wallet?.address}</p>
+                </div>
+
+                {params?.type === 'sign' && (
+                    <div style={{ marginBottom: '32px', textAlign: 'left' }}>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>TRANSACTION DETAILS</p>
+                        <div style={{ fontSize: '13px', maxHeight: '100px', overflowY: 'auto', background: '#000', padding: '12px', borderRadius: '8px' }}>
+                            <pre className="mono" style={{ color: 'var(--primary)' }}>
+                                {JSON.stringify(params.data, null, 2)}
+                            </pre>
+                        </div>
+                    </div>
+                )}
+
+                {error && <p style={{ color: 'var(--error)', marginBottom: '20px' }}>{error}</p>}
+
+                {!signed ? (
+                    <div style={{ position: 'relative', height: '60px', background: 'rgba(255,255,255,0.05)', borderRadius: '30px', padding: '5px', overflow: 'hidden' }}>
+                        <motion.div
+                            style={{ background, color, position: 'absolute', left: '5px', top: '5px', bottom: '5px', width: '200px', zIndex: 0, borderRadius: '25px' }}
+                        />
+                        <motion.div
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 280 }}
+                            style={{
+                                x,
+                                width: '50px',
+                                height: '50px',
+                                borderRadius: '25px',
+                                background: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'grab',
+                                zIndex: 1,
+                                position: 'relative'
+                            }}
+                            onDragEnd={onDragEnd}
+                            className="glass"
+                        >
+                            <ArrowRight color="black" size={24} />
+                        </motion.div>
+                        <div style={{ position: 'absolute', width: '100%', top: '0', bottom: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', fontSize: '14px', fontWeight: '600' }}>
+                            Slide to {params?.type === 'connect' ? 'Connect' : 'Sign'}
+                        </div>
+                    </div>
+                ) : (
+                    <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} style={{ color: 'var(--primary)', fontWeight: '600' }}>
+                        <Check size={48} style={{ margin: '0 auto 16px' }} />
+                        Transaction Signed!
+                    </motion.div>
+                )}
+
+                <button
+                    onClick={() => window.close()}
+                    style={{ marginTop: '24px', color: 'var(--text-muted)', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px', margin: '24px auto 0' }}
+                >
+                    <X size={14} /> Cancel Request
+                </button>
+            </motion.div>
+
+            {/* Debug Info */}
+            <div style={{ position: 'fixed', bottom: '20px', left: '20px', fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>
+                RPC DEBUG: {params?.type} | {wallet?.address?.substring(0, 8)}...
+            </div>
+        </div>
+    )
+}

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from './utils/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import WalletRPC from './pages/WalletRPC'
 
 function App() {
     const [session, setSession] = useState(null)
@@ -29,6 +30,7 @@ function App() {
             <div className="bg-glow bg-glow-bottom"></div>
             <Routes>
                 <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+                <Route path="/rpc" element={session ? <WalletRPC session={session} /> : <Navigate to="/login" />} />
                 <Route path="/" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
             </Routes>
         </Router>
