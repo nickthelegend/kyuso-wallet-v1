@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import { Check, Shield, X, ArrowRight, Wallet } from 'lucide-react'
-import axios from 'axios'
+import api from '../utils/api'
 import algosdk from 'algosdk'
 
 export default function WalletRPC({ session }) {
@@ -71,7 +71,7 @@ export default function WalletRPC({ session }) {
 
     const fetchWallet = async () => {
         try {
-            const { data } = await axios.post('/api/wallet', {}, {
+            const { data } = await api.post('/wallet', {}, {
                 headers: { Authorization: `Bearer ${session.access_token}` }
             })
             setWallet(data)
@@ -96,7 +96,7 @@ export default function WalletRPC({ session }) {
             try {
                 setLoading(true)
                 // CALL REAL BACKEND SIGNING
-                const response = await axios.post('/api/wallet/sign', {
+                const response = await api.post('/wallet/sign', {
                     transactions: params.data,
                     isMsgpack: !!decodedTxns.length // Tell backend if these are base64 msgpack
                 }, {
@@ -151,7 +151,7 @@ export default function WalletRPC({ session }) {
 
                 <div className="glass" style={{ padding: '16px', marginBottom: '32px', textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>WALLET ADDRESS</p>
-                    <p className="mono" style={{ fontSize: '13px', wordBreak: 'break-all' }}>{wallet?.public_address}</p>
+                    <p className="mono" style={{ fontSize: '13px', wordBreak: 'break-all' }}>{wallet?.address || wallet?.public_address}</p>
                 </div>
 
                 {params?.type === 'sign' && (

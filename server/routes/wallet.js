@@ -66,11 +66,14 @@ router.post("/sign", verifySupabase, async (req, res) => {
                 const bytes = Buffer.from(tBase64, 'base64')
                 const txn = algosdk.decodeUnsignedTransaction(bytes)
 
-                // Get the raw object for mapping
-                // Fallback for different algosdk versions
-                const obj = (typeof txn.get_obj_for_encoding === 'function')
-                    ? txn.get_obj_for_encoding()
-                    : JSON.parse(JSON.stringify(txn))
+                // Safe object conversion handling BigInt across all algosdk versions
+                let obj;
+                if (typeof txn.get_obj_for_encoding === 'function') {
+                    const raw = txn.get_obj_for_encoding();
+                    obj = JSON.parse(JSON.stringify(raw, (k, v) => typeof v === 'bigint' ? v.toString() : v));
+                } else {
+                    obj = JSON.parse(JSON.stringify(txn, (k, v) => typeof v === 'bigint' ? v.toString() : v));
+                }
 
                 const type = obj.type || txn.type
 
@@ -78,7 +81,7 @@ router.post("/sign", verifySupabase, async (req, res) => {
                     return {
                         type: 'payment',
                         payload: {
-                            toAddress: algosdk.encodeAddress(obj.rcv || txn.payment?.receiver?.publicKey || txn.to?.publicKey),
+                            toAddress: algosdk.encodeAddress(obj.rcv || txn.payment?.receiver?.publicKey || txn.to?.publicKey || new Uint8Array(obj.rcv || [])),
                             amount: Number(obj.amt || txn.amount || txn.payment?.amount || 0),
                             fromUserId: userId,
                             note: (obj.note || txn.note) ? Buffer.from(obj.note || txn.note).toString() : "Signed via AlgoVault"
@@ -90,8 +93,10 @@ router.post("/sign", verifySupabase, async (req, res) => {
                         payload: {
                             appId: Number(obj.apid || txn.appIndex || txn.application?.appIndex || 0),
                             fromUserId: userId,
-                            appArgs: (obj.apaa || txn.appArgs || txn.application?.appArgs || []).map(arg => Buffer.from(arg).toString()),
-                            onComplete: obj.apan || txn.appOnComplete || txn.application?.appOnComplete || 0,
+                            appArgs: (obj.apaa || txn.appArgs || txn.application?.appArgs || []).map(arg => {
+                                return typeof arg === 'string' ? arg : Buffer.from(arg).toString('base64');
+                            }),
+                            onComplete: Number(obj.apan || txn.appOnComplete || txn.application?.appOnComplete || 0),
                             foreignAccounts: (obj.apat || txn.application?.accounts || []).map(a => algosdk.encodeAddress(a)),
                             foreignAssets: (obj.apas || txn.application?.foreignAssets || []).map(a => Number(a)),
                             foreignApps: (obj.apfa || txn.application?.foreignApps || []).map(a => Number(a))
@@ -103,7 +108,7 @@ router.post("/sign", verifySupabase, async (req, res) => {
                         payload: {
                             assetId: Number(obj.xaid || txn.assetIndex || txn.assetTransfer?.assetIndex || 0),
                             amount: Number(obj.aamt || txn.amount || txn.assetTransfer?.amount || 0),
-                            toAddress: algosdk.encodeAddress(obj.arcv || txn.assetTransfer?.receiver?.publicKey || txn.to?.publicKey),
+                            toAddress: algosdk.encodeAddress(obj.arcv || txn.assetTransfer?.receiver?.publicKey || txn.to?.publicKey || new Uint8Array(obj.arcv || [])),
                             fromUserId: userId
                         }
                     }
@@ -111,7 +116,7 @@ router.post("/sign", verifySupabase, async (req, res) => {
                     const config = obj.apar || txn.assetConfig || {};
                     const getStr = (v) => v ? (typeof v === 'string' ? v : Buffer.from(v).toString()) : "";
                     const getAddr = (v) => {
-                        try { return v ? algosdk.encodeAddress(v) : undefined } catch (e) { return undefined }
+                        try { return v ? algosdk.encodeAddress(typeof v === 'string' ? algosdk.decodeAddress(v).publicKey : v) : undefined } catch (e) { return undefined }
                     };
 
                     return {
@@ -131,8 +136,8 @@ router.post("/sign", verifySupabase, async (req, res) => {
                 }
                 return { error: "Unsupported transaction type", type }
             } catch (err) {
-                console.error("Decode failed:", err.message)
-                return { error: "Decode failed", details: err.message }
+                console.error("Decode failed stack:", err.stack)
+                return { error: "Decode failed", details: `${err.message} at mapping` }
             }
         })
     } else {
@@ -152,9 +157,18 @@ router.post("/sign", verifySupabase, async (req, res) => {
         const vaultToken = await getVaultToken()
         const pawnJWT = await getPawnJWT(vaultToken)
 
+        // Pre-flight check: ensure all steps are valid
+        const invalidStep = formattedTransactions.find(t => t.error || !t.type || !t.payload)
+        if (invalidStep) {
+            console.error("[Sign] Invalid step detected:", invalidStep)
+            return res.status(400).json({ error: "Invalid transaction format", details: invalidStep })
+        }
+
+        console.log("[Sign] Final Formatted Transactions:", JSON.stringify(formattedTransactions, (k, v) => typeof v === 'bigint' ? v.toString() : v, 2))
+
         let result;
-        const isSingle = formattedTransactions.length === 1 && !formattedTransactions[0].error;
-        const first = isSingle ? formattedTransactions[0] : null;
+        const isSingle = formattedTransactions.length === 1;
+        const first = formattedTransactions[0];
 
         if (isSingle && first.type === 'payment') {
             const p = first.payload
@@ -167,7 +181,7 @@ router.post("/sign", verifySupabase, async (req, res) => {
             const txRes = await appCall(pawnJWT, userId, p.appId, p.appArgs)
             result = { txId: txRes.transaction_id, signed_transactions: [txRes.transaction_id] }
         } else {
-            console.log("[Sign] Grouped or specialized txn - using group-transaction (Caution: may 403 if Manager key is restricted)")
+            console.log("[Sign] Grouped or specialized txn - using group-transaction")
             result = await signTransactions(pawnJWT, userId, formattedTransactions)
         }
 
@@ -202,26 +216,30 @@ router.get("/", verifySupabase, async (req, res) => {
 router.get("/details", verifySupabase, async (req, res) => {
     const userId = req.user.id
     try {
+        console.log("[Details] Fetching details for user:", userId)
         const vaultToken = await getVaultToken()
         const pawnJWT = await getPawnJWT(vaultToken)
         const details = await getUser(pawnJWT, userId)
+        console.log("[Details] Success for:", userId)
         res.json(details)
     } catch (error) {
-        console.error("Error fetching user details:", error.message)
-        res.status(500).json({ error: "Failed to fetch user details" })
+        console.error("Error fetching user details:", error.response?.data || error.message)
+        res.status(500).json({ error: "Failed to fetch user details", details: error.response?.data })
     }
 })
 
 router.get("/assets", verifySupabase, async (req, res) => {
     const userId = req.user.id
     try {
+        console.log("[Assets] Fetching assets for user:", userId)
         const vaultToken = await getVaultToken()
         const pawnJWT = await getPawnJWT(vaultToken)
         const assets = await getAssets(pawnJWT, userId)
+        console.log("[Assets] Success for:", userId)
         res.json(assets)
     } catch (error) {
-        console.error("Error fetching assets:", error.message)
-        res.status(500).json({ error: "Failed to fetch assets" })
+        console.error("Error fetching assets:", error.response?.data || error.message)
+        res.status(500).json({ error: "Failed to fetch assets", details: error.response?.data })
     }
 })
 

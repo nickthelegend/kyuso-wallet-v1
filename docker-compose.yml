@@ -1,0 +1,27 @@
+services:
+  algo-wallet-backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: algo-wallet-backend
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      # Using internal container names for communication
+      - PAWN_URL=http://pawn:3000
+      - VAULT_URL=http://vault:8200
+      - VAULT_ROLE_ID=${VAULT_ROLE_ID}
+      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
+    networks:
+      - intermezzo-network
+
+networks:
+  intermezzo-network:
+    external: true
+    name: intermezzo_default # Match the network name used in your Intermezzo docker-compose.yml

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../utils/api'
 import { motion } from 'framer-motion'
 import { Copy, ExternalLink, RefreshCw, Wallet, LogOut, ChevronRight, ShieldCheck, Zap } from 'lucide-react'
 import { supabase } from '../utils/supabase'
@@ -21,26 +21,33 @@ export default function Dashboard({ session }) {
         try {
             const headers = { Authorization: `Bearer ${session.access_token}` }
 
-            // Fetch Wallet Mapping
-            const walletRes = await axios.post('/api/wallet', {}, { headers })
-            setWallet(walletRes.data)
+            // Fetch everything in parallel
+            const [walletRes, detailsRes, assetsRes] = await Promise.allSettled([
+                api.post('/wallet', {}, { headers }),
+                api.get('/wallet/details', { headers }),
+                api.get('/wallet/assets', { headers })
+            ])
 
-            // Fetch User Details from Intermezzo
-            const detailsRes = await axios.get('/api/wallet/details', { headers })
-            setDetails(detailsRes.data)
+            if (walletRes.status === 'fulfilled') {
+                setWallet(walletRes.value.data)
+                console.log("[Dashboard] Wallet Fetched:", walletRes.value.data)
+            } else {
+                console.error("[Dashboard] Wallet Error:", walletRes.reason)
+            }
 
-            // Fetch Intermezzo Assets
-            const assetsRes = await axios.get('/api/wallet/assets', { headers })
-            setAssets(assetsRes.data)
+            if (detailsRes.status === 'fulfilled') setDetails(detailsRes.value.data)
+            if (assetsRes.status === 'fulfilled') setAssets(assetsRes.value.data)
+
         } catch (err) {
             console.error('Error fetching dashboard data:', err)
-            setError('Failed to load wallet data. Please try again.')
+            setError('Connection error. Please check server.')
         } finally {
             setLoading(false)
         }
     }
 
     const copyToClipboard = (text) => {
+        if (!text) return
         navigator.clipboard.writeText(text)
         setCopying(true)
         setTimeout(() => setCopying(false), 2000)
@@ -102,7 +109,7 @@ export default function Dashboard({ session }) {
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
                                     <button
-                                        onClick={() => copyToClipboard(wallet?.public_address)}
+                                        onClick={() => copyToClipboard(wallet?.address)}
                                         className="glass"
                                         style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: copying ? 'var(--primary)' : 'white' }}
                                     >

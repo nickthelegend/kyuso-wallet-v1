@@ -1,0 +1,10 @@
+node_modules
+frontend
+.git
+.env
+dist
+npm-debug.log
+error-logs.txt
+manager-role-and-secrets.json
+user-role-and-secrets.json
+vault-seal-keys.json
