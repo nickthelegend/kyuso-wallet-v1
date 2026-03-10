@@ -42,7 +42,7 @@ export default function WalletRPC({ session }) {
                     }
 
                     // Direct access/stringify for v3.x
-                    const obj = JSON.parse(JSON.stringify(txn, (key, value) => typeof value === 'bigint' ? value.toString() : value))
+                    const obj = JSON.parse(JSON.stringify(txn))
                     return {
                         type: obj.type,
                         sender: txn.sender ? txn.sender.toString() : 'Unknown',
