@@ -7,15 +7,17 @@ services:
     restart: always
     ports:
       - "4000:4000"
+    # OPTION 1: Point directly to the .env file on your VPS
+    env_file:
+      - .env
     environment:
       - PORT=4000
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
-      # Using internal container names for communication
+      # Overriding PAWN and VAULT to use internal Docker DNS for co-hosting
       - PAWN_URL=http://pawn:3000
       - VAULT_URL=http://vault:8200
+      # Re-declaring these ensures they are correctly passed even if env_file has issues
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - VAULT_ROLE_ID=${VAULT_ROLE_ID}
       - VAULT_SECRET_ID=${VAULT_SECRET_ID}
     networks:
@@ -24,4 +26,4 @@ services:
 networks:
   intermezzo-network:
     external: true
-    name: intermezzo_default # Match the network name used in your Intermezzo docker-compose.yml
+    name: intermezzo_default # This must match the network of your vault/pawn containers
