@@ -20,29 +20,35 @@ export default function Dashboard({ session }) {
 
     const fetchData = async () => {
         setLoading(true)
+        setError(null)
         try {
             const headers = { Authorization: `Bearer ${session.access_token}` }
 
-            // Fetch everything in parallel
-            const [walletRes, detailsRes, assetsRes] = await Promise.allSettled([
-                api.post('/wallet', {}, { headers }),
+            // 1. First ensure wallet exists (Create if needed)
+            console.log("[Dashboard] Initializing wallet...")
+            const walletRes = await api.post('/wallet', {}, { headers })
+            setWallet(walletRes.data)
+            console.log("[Dashboard] Wallet Ready:", walletRes.data.address)
+
+            // 2. Now fetch details and assets in parallel
+            const [detailsRes, assetsRes] = await Promise.allSettled([
                 api.get('/wallet/details', { headers }),
                 api.get('/wallet/assets', { headers })
             ])
 
-            if (walletRes.status === 'fulfilled') {
-                setWallet(walletRes.value.data)
-                console.log("[Dashboard] Wallet Fetched:", walletRes.value.data)
+            if (detailsRes.status === 'fulfilled') {
+                setDetails(detailsRes.value.data)
             } else {
-                console.error("[Dashboard] Wallet Error:", walletRes.reason)
+                console.warn("[Dashboard] Details fetch failed (User might be new to Vault)")
             }
 
-            if (detailsRes.status === 'fulfilled') setDetails(detailsRes.value.data)
-            if (assetsRes.status === 'fulfilled') setAssets(assetsRes.value.data)
+            if (assetsRes.status === 'fulfilled') {
+                setAssets(assetsRes.value.data)
+            }
 
         } catch (err) {
             console.error('Error fetching dashboard data:', err)
-            setError('Connection error. Please check server.')
+            setError(err.response?.data?.error || 'Failed to connect to Kyra services.')
         } finally {
             setLoading(false)
         }
@@ -104,7 +110,7 @@ export default function Dashboard({ session }) {
                         ) : error ? (
                             <div>
                                 <p style={{ color: 'var(--error)' }}>{error}</p>
-                                <button onClick={fetchWallet} style={{ color: 'var(--primary)', marginTop: '8px', fontSize: '14px' }}>Try Again</button>
+                                <button onClick={fetchData} style={{ color: 'var(--primary)', marginTop: '8px', fontSize: '14px' }}>Try Again</button>
                             </div>
                         ) : (
                             <div>

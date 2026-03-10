@@ -216,30 +216,59 @@ router.get("/", verifySupabase, async (req, res) => {
 router.get("/details", verifySupabase, async (req, res) => {
     const userId = req.user.id
     try {
-        console.log("[Details] Fetching details for user:", userId)
-        const vaultToken = await getVaultToken()
-        const pawnJWT = await getPawnJWT(vaultToken)
-        const details = await getUser(pawnJWT, userId)
-        console.log("[Details] Success for:", userId)
-        res.json(details)
+        console.log("[Details] Fetching details directly from node for:", userId)
+        
+        const { data: wallet, error: dbError } = await supabase
+            .from("wallets")
+            .select("algo_address")
+            .eq("supabase_user_id", userId)
+            .single()
+
+        if (dbError || !wallet) {
+            return res.status(404).json({ error: "Wallet not found in database. Please initialize first." })
+        }
+
+        const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '')
+        const accountInfo = await algodClient.accountInformation(wallet.algo_address).do()
+        
+        console.log("[Details] Node Success for:", wallet.algo_address)
+        res.json({
+            user_id: userId,
+            public_address: wallet.algo_address,
+            algoBalance: accountInfo.amount.toString()
+        })
     } catch (error) {
-        console.error("Error fetching user details:", error.response?.data || error.message)
-        res.status(500).json({ error: "Failed to fetch user details", details: error.response?.data })
+        console.error("Error fetching user details from node:", error.message)
+        res.status(500).json({ error: "Failed to fetch user details from network", details: error.message })
     }
 })
 
 router.get("/assets", verifySupabase, async (req, res) => {
     const userId = req.user.id
     try {
-        console.log("[Assets] Fetching assets for user:", userId)
-        const vaultToken = await getVaultToken()
-        const pawnJWT = await getPawnJWT(vaultToken)
-        const assets = await getAssets(pawnJWT, userId)
-        console.log("[Assets] Success for:", userId)
-        res.json(assets)
+        console.log("[Assets] Fetching assets directly from node for:", userId)
+
+        const { data: wallet, error: dbError } = await supabase
+            .from("wallets")
+            .select("algo_address")
+            .eq("supabase_user_id", userId)
+            .single()
+
+        if (dbError || !wallet) {
+            return res.status(404).json({ error: "Wallet not found. Please initialize first." })
+        }
+
+        const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '')
+        const accountInfo = await algodClient.accountInformation(wallet.algo_address).do()
+
+        console.log("[Assets] Node Success for:", wallet.algo_address)
+        res.json({
+            address: wallet.algo_address,
+            assets: accountInfo.assets || []
+        })
     } catch (error) {
-        console.error("Error fetching assets:", error.response?.data || error.message)
-        res.status(500).json({ error: "Failed to fetch assets", details: error.response?.data })
+        console.error("Error fetching assets from node:", error.message)
+        res.status(500).json({ error: "Failed to fetch assets from network", details: error.message })
     }
 })
 
