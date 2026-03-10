@@ -3,6 +3,8 @@ import { supabase } from '../utils/supabase'
 import { motion } from 'framer-motion'
 import { Mail, Lock, Chrome, Loader2 } from 'lucide-react'
 
+import logo from '../assets/logo.png'
+
 export default function Login() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -37,8 +39,9 @@ export default function Login() {
                 style={{ width: '100%', maxWidth: '400px', padding: '40px' }}
             >
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>Algo<span style={{ color: 'var(--primary)' }}>Vault</span></h1>
-                    <p style={{ color: 'var(--text-muted)' }}>The premium custodial wallet for Algorand</p>
+                    <img src={logo} alt="Kyra Logo" style={{ width: '80px', height: '80px', marginBottom: '16px' }} />
+                    <h1 style={{ fontSize: '32px', marginBottom: '8px' }}>Kyra <span style={{ color: 'var(--primary)' }}>Wallet</span></h1>
+                    <p style={{ color: 'var(--text-muted)' }}>The premium custodial wallet for the new era</p>
                 </div>
 
                 {error && (

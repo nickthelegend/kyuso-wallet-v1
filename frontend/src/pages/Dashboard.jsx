@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import { Copy, ExternalLink, RefreshCw, Wallet, LogOut, ChevronRight, ShieldCheck, Zap } from 'lucide-react'
 import { supabase } from '../utils/supabase'
 
+import logo from '../assets/logo.png'
+
 export default function Dashboard({ session }) {
     const [wallet, setWallet] = useState(null)
     const [details, setDetails] = useState(null)
@@ -61,7 +63,10 @@ export default function Dashboard({ session }) {
         <div className="page-container">
             {/* Navbar */}
             <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                <h1 style={{ fontSize: '24px' }}>Algo<span style={{ color: 'var(--primary)' }}>Vault</span></h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img src={logo} alt="Kyra" style={{ width: '40px', height: '40px' }} />
+                    <h1 style={{ fontSize: '24px' }}>Kyra <span style={{ color: 'var(--primary)' }}>Wallet</span></h1>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <div style={{ textAlign: 'right' }}>
                         <p style={{ fontSize: '14px', fontWeight: '500' }}>{session.user.email}</p>

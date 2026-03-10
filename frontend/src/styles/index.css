@@ -1,17 +1,17 @@
 :root {
-  --background: #050505;
-  --surface: #0a0a0a;
-  --surface-hover: #121212;
-  --primary: #00ffa3;
-  --primary-glow: rgba(0, 255, 163, 0.4);
-  --secondary: #00e0ff;
-  --accent: #7000ff;
+  --background: #030014;
+  --surface: #0a0a1a;
+  --surface-hover: #151030;
+  --primary: #a855f7;
+  --primary-glow: rgba(168, 85, 247, 0.4);
+  --secondary: #d8b4fe;
+  --accent: #7c3aed;
   --text: #ffffff;
-  --text-muted: #888888;
-  --error: #ff3e3e;
-  --border: rgba(255, 255, 255, 0.08);
-  --card-bg: rgba(20, 20, 20, 0.7);
-  --glass: rgba(255, 255, 255, 0.03);
+  --text-muted: #94a3b8;
+  --error: #ff4d4d;
+  --border: rgba(168, 85, 247, 0.15);
+  --card-bg: rgba(10, 10, 30, 0.6);
+  --glass: rgba(168, 85, 247, 0.05);
 }
 
 * {
