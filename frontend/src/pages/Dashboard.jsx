@@ -6,26 +6,35 @@ import { supabase } from '../utils/supabase'
 
 export default function Dashboard({ session }) {
     const [wallet, setWallet] = useState(null)
+    const [details, setDetails] = useState(null)
+    const [assets, setAssets] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [copying, setCopying] = useState(false)
 
     useEffect(() => {
-        fetchWallet()
+        fetchData()
     }, [])
 
-    const fetchWallet = async () => {
+    const fetchData = async () => {
         setLoading(true)
         try {
-            const { data } = await axios.post('/api/wallet', {}, {
-                headers: {
-                    Authorization: `Bearer ${session.access_token}`
-                }
-            })
-            setWallet(data)
+            const headers = { Authorization: `Bearer ${session.access_token}` }
+
+            // Fetch Wallet Mapping
+            const walletRes = await axios.post('/api/wallet', {}, { headers })
+            setWallet(walletRes.data)
+
+            // Fetch User Details from Intermezzo
+            const detailsRes = await axios.get('/api/wallet/details', { headers })
+            setDetails(detailsRes.data)
+
+            // Fetch Intermezzo Assets
+            const assetsRes = await axios.get('/api/wallet/assets', { headers })
+            setAssets(assetsRes.data)
         } catch (err) {
-            console.error('Error fetching wallet:', err)
-            setError('Failed to load wallet. Please try again.')
+            console.error('Error fetching dashboard data:', err)
+            setError('Failed to load wallet data. Please try again.')
         } finally {
             setLoading(false)
         }
@@ -110,23 +119,27 @@ export default function Dashboard({ session }) {
                     {/* Activity Placeholder */}
                     <div className="glass" style={{ padding: '24px', flex: 1 }}>
                         <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Zap size={18} color="var(--primary)" /> Recent Activity
+                            <Zap size={18} color="var(--primary)" /> Asset Holdings
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {[1, 2, 3].map(i => (
-                                <div key={i} style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '20px', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <RefreshCw size={16} color="var(--primary)" />
+                            {assets?.assets && assets.assets.length > 0 ? (
+                                assets.assets.map(asset => (
+                                    <div key={asset['asset-id']} style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '20px', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <RefreshCw size={16} color="var(--primary)" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '14px', fontWeight: '500' }}>Asset ID: {asset['asset-id']}</p>
+                                                <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Amount: {asset.amount}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p style={{ fontSize: '14px', fontWeight: '500' }}>Wallet Created</p>
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Network: Mainnet</p>
-                                        </div>
+                                        <ChevronRight size={16} color="var(--text-muted)" />
                                     </div>
-                                    <ChevronRight size={16} color="var(--text-muted)" />
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>No non-ALGO assets found.</p>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -135,8 +148,11 @@ export default function Dashboard({ session }) {
                 <aside style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div className="glass" style={{ padding: '24px', background: 'linear-gradient(135deg, rgba(0, 255, 163, 0.05) 0%, rgba(0, 224, 255, 0.05) 100%)' }}>
                         <h3 style={{ marginBottom: '8px' }}>Asset Balance</h3>
-                        <p style={{ fontSize: '32px', fontWeight: '700' }}>0.00 <span style={{ fontSize: '16px', color: 'var(--primary)' }}>ALGO</span></p>
-                        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>≈ $0.00 USD</p>
+                        <p style={{ fontSize: '32px', fontWeight: '700' }}>
+                            {details ? (Number(details.algoBalance) / 1000000).toFixed(2) : '0.00'}
+                            <span style={{ fontSize: '16px', color: 'var(--primary)', marginLeft: '8px' }}>ALGO</span>
+                        </p>
+                        <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Verified Custodial Account</p>
 
                         <button className="glow-btn" style={{ width: '100%', marginTop: '24px', justifyContent: 'center' }}>
                             Send Assets

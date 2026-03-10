@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
-import { Check, Shield, X, ArrowRight, Wallet, ShieldAlert } from 'lucide-react'
+import { Check, Shield, X, ArrowRight, Wallet } from 'lucide-react'
 import axios from 'axios'
+import algosdk from 'algosdk'
 
 export default function WalletRPC({ session }) {
     const [params, setParams] = useState(null)
@@ -9,6 +10,7 @@ export default function WalletRPC({ session }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [signed, setSigned] = useState(false)
+    const [decodedTxns, setDecodedTxns] = useState([])
 
     // Motion values for slider
     const x = useMotionValue(0)
@@ -18,9 +20,49 @@ export default function WalletRPC({ session }) {
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search)
         const type = searchParams.get('type')
-        const data = searchParams.get('data')
+        const dataStr = searchParams.get('data')
+        const txnsStr = searchParams.get('txns')
 
-        setParams({ type, data: data ? JSON.parse(atob(data)) : null })
+        let parsedData = null
+        let decoded = []
+
+        if (txnsStr) {
+            const rawTxns = JSON.parse(decodeURIComponent(txnsStr))
+            parsedData = rawTxns // Base64 msgpack array
+
+            // Decode for UI display
+            decoded = rawTxns.map(t => {
+                try {
+                    const bytes = new Uint8Array(atob(t).split('').map(c => c.charCodeAt(0)))
+                    const txn = algosdk.decodeUnsignedTransaction(bytes)
+
+                    // Fallback for algosdk v3.x
+                    if (typeof txn.get_obj_for_encoding === 'function') {
+                        return txn.get_obj_for_encoding()
+                    }
+
+                    // Direct access/stringify for v3.x
+                    const obj = JSON.parse(JSON.stringify(txn, (key, value) => typeof value === 'bigint' ? value.toString() : value))
+                    return {
+                        type: obj.type,
+                        sender: txn.sender ? txn.sender.toString() : 'Unknown',
+                        receiver: (txn.payment?.receiver || txn.assetTransfer?.receiver || txn.to)?.toString(),
+                        amount: Number(txn.payment?.amount || txn.assetTransfer?.amount || 0),
+                        appIndex: txn.application?.appIndex,
+                        assetIndex: txn.assetTransfer?.assetIndex,
+                        note: txn.note ? new TextDecoder().decode(txn.note) : undefined
+                    }
+                } catch (e) {
+                    console.error("UI Decode fail:", e)
+                    return { error: "Failed to decode", details: e.message }
+                }
+            })
+        } else if (dataStr) {
+            parsedData = JSON.parse(atob(dataStr))
+        }
+
+        setParams({ type, data: parsedData })
+        setDecodedTxns(decoded)
         fetchWallet()
     }, [])
 
@@ -44,16 +86,31 @@ export default function WalletRPC({ session }) {
         }
     }
 
-    const handleComplete = () => {
+    const handleComplete = async () => {
         if (params.type === 'connect') {
             handleResponse({ address: wallet.address, name: 'AlgoVault Custodial' })
         } else if (params.type === 'sign') {
-            // For demo, we just "sign" by returning a dummy hash or the original txn
-            // In a real app, this would call the backend to sign via Intermezzo/Pawn
-            setSigned(true)
-            setTimeout(() => {
-                handleResponse({ signedTxns: params.data.map(() => "dummy_signed_blob") })
-            }, 1000)
+            try {
+                setLoading(true)
+                // CALL REAL BACKEND SIGNING
+                const response = await axios.post('/api/wallet/sign', {
+                    transactions: params.data,
+                    isMsgpack: !!decodedTxns.length // Tell backend if these are base64 msgpack
+                }, {
+                    headers: { Authorization: `Bearer ${session.access_token}` }
+                })
+
+                setSigned(true)
+                setTimeout(() => {
+                    handleResponse({ signedTxns: response.data.signed_transactions || [] })
+                }, 1500)
+            } catch (err) {
+                const msg = err.response?.data?.message || err.response?.data?.error || err.message
+                setError("Signing failed: " + msg)
+                x.set(0)
+            } finally {
+                setLoading(false)
+            }
         }
     }
 
@@ -99,7 +156,7 @@ export default function WalletRPC({ session }) {
                         <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>TRANSACTION DETAILS</p>
                         <div style={{ fontSize: '13px', maxHeight: '100px', overflowY: 'auto', background: '#000', padding: '12px', borderRadius: '8px' }}>
                             <pre className="mono" style={{ color: 'var(--primary)' }}>
-                                {JSON.stringify(params.data, null, 2)}
+                                {JSON.stringify(decodedTxns.length ? decodedTxns : params.data, null, 2)}
                             </pre>
                         </div>
                     </div>

@@ -27,3 +27,71 @@ export async function createWallet(pawnJWT, userId) {
     )
     return res.data
 }
+
+export async function getUser(pawnJWT, userId) {
+    const res = await axios.get(
+        `${process.env.PAWN_URL}/v1/wallet/users/${userId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${pawnJWT}`
+            }
+        }
+    )
+    return res.data
+}
+
+export async function getAssets(pawnJWT, userId) {
+    const res = await axios.get(
+        `${process.env.PAWN_URL}/v1/wallet/assets/${userId}`,
+        {
+            headers: {
+                Authorization: `Bearer ${pawnJWT}`
+            }
+        }
+    )
+    return res.data
+}
+
+export async function transferAlgo(pawnJWT, fromUserId, toAddress, amount, note, lease) {
+    const res = await axios.post(
+        `${process.env.PAWN_URL}/v1/wallet/transactions/transfer-algo`,
+        { fromUserId, toAddress, amount, note, lease },
+        { headers: { Authorization: `Bearer ${pawnJWT}` } }
+    )
+    return res.data
+}
+
+export async function transferAsset(pawnJWT, assetId, userId, amount, note, lease) {
+    const res = await axios.post(
+        `${process.env.PAWN_URL}/v1/wallet/transactions/transfer-asset`,
+        { assetId, userId, amount, note, lease },
+        { headers: { Authorization: `Bearer ${pawnJWT}` } }
+    )
+    return res.data
+}
+
+export async function appCall(pawnJWT, fromUserId, appId, appArgs = []) {
+    const res = await axios.post(
+        `${process.env.PAWN_URL}/v1/wallet/transactions/app-call`,
+        { fromUserId, appId, appArgs, onComplete: 0 },
+        { headers: { Authorization: `Bearer ${pawnJWT}` } }
+    )
+    return res.data
+}
+
+export async function signTransactions(pawnJWT, userId, txns) {
+    // Use the correct endpoint found in your logs
+    const res = await axios.post(
+        `${process.env.PAWN_URL}/v1/wallet/transactions/group-transaction`,
+        {
+            user_id: userId,
+            transactions: txns
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${pawnJWT}`
+            }
+        }
+    )
+    return res.data
+}
