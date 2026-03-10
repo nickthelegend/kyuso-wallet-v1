@@ -97,12 +97,12 @@ export default function Dashboard({ session }) {
                         ) : (
                             <div>
                                 <h2 className="mono" style={{ fontSize: '20px', wordBreak: 'break-all', marginBottom: '24px', maxWidth: '90%' }}>
-                                    {wallet?.address || 'Generation in progress...'}
+                                    {wallet?.public_address || 'Generation in progress...'}
                                 </h2>
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
                                     <button
-                                        onClick={() => copyToClipboard(wallet?.address)}
+                                        onClick={() => copyToClipboard(wallet?.public_address)}
                                         className="glass"
                                         style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: copying ? 'var(--primary)' : 'white' }}
                                     >

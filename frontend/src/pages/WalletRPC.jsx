@@ -41,15 +41,18 @@ export default function WalletRPC({ session }) {
                         return txn.get_obj_for_encoding()
                     }
 
-                    // Direct access/stringify for v3.x
-                    const obj = JSON.parse(JSON.stringify(txn))
+                    // Direct access/stringify for v3.x - handle BigInt serialization
+                    const obj = JSON.parse(JSON.stringify(txn, (key, value) =>
+                        typeof value === 'bigint' ? value.toString() : value
+                    ))
                     return {
+                        ...obj,
                         type: obj.type,
                         sender: txn.sender ? txn.sender.toString() : 'Unknown',
-                        receiver: (txn.payment?.receiver || txn.assetTransfer?.receiver || txn.to)?.toString(),
-                        amount: Number(txn.payment?.amount || txn.assetTransfer?.amount || 0),
-                        appIndex: txn.application?.appIndex,
-                        assetIndex: txn.assetTransfer?.assetIndex,
+                        receiver: (txn.payment?.receiver || txn.assetTransfer?.receiver || txn.to || obj.rcv || obj.arcv)?.toString(),
+                        amount: String(txn.payment?.amount || txn.assetTransfer?.amount || obj.amt || obj.aamt || 0),
+                        appIndex: String(txn.application?.appIndex || obj.apid || 0),
+                        assetIndex: String(txn.assetTransfer?.assetIndex || obj.xaid || 0),
                         note: txn.note ? new TextDecoder().decode(txn.note) : undefined
                     }
                 } catch (e) {
@@ -88,7 +91,7 @@ export default function WalletRPC({ session }) {
 
     const handleComplete = async () => {
         if (params.type === 'connect') {
-            handleResponse({ address: wallet.address, name: 'AlgoVault Custodial' })
+            handleResponse({ address: wallet.public_address, name: 'AlgoVault Custodial' })
         } else if (params.type === 'sign') {
             try {
                 setLoading(true)
@@ -148,7 +151,7 @@ export default function WalletRPC({ session }) {
 
                 <div className="glass" style={{ padding: '16px', marginBottom: '32px', textAlign: 'left', background: 'rgba(255,255,255,0.02)' }}>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>WALLET ADDRESS</p>
-                    <p className="mono" style={{ fontSize: '13px', wordBreak: 'break-all' }}>{wallet?.address}</p>
+                    <p className="mono" style={{ fontSize: '13px', wordBreak: 'break-all' }}>{wallet?.public_address}</p>
                 </div>
 
                 {params?.type === 'sign' && (
@@ -211,7 +214,7 @@ export default function WalletRPC({ session }) {
 
             {/* Debug Info */}
             <div style={{ position: 'fixed', bottom: '20px', left: '20px', fontSize: '10px', color: 'rgba(255,255,255,0.2)' }}>
-                RPC DEBUG: {params?.type} | {wallet?.address?.substring(0, 8)}...
+                RPC DEBUG: {params?.type} | {wallet?.public_address?.substring(0, 8)}...
             </div>
         </div>
     )
