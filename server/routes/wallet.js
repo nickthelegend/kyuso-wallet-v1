@@ -10,32 +10,47 @@ const router = express.Router()
 router.post("/", verifySupabase, async (req, res) => {
     const userId = req.user.id
 
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
         .from("wallets")
         .select("*")
         .eq("supabase_user_id", userId)
         .single()
 
+    console.log("[CreateWallet] Supabase Lookup Result:", data ? "Found" : "Not Found", fetchError?.message || "")
+
     if (data) {
         return res.json({
-            address: data.algo_address
+            address: data.algo_address,
+            public_address: data.algo_address
         })
     }
 
     try {
+        console.log("[CreateWallet] Fetching Vault Token...")
         const vaultToken = await getVaultToken()
-        const pawnJWT = await getPawnJWT(vaultToken)
-        const wallet = await createWallet(pawnJWT, userId)
+        console.log("[CreateWallet] Vault Token Fetched. Fetching Pawn JWT...")
 
-        await supabase.from("wallets").insert({
+        const pawnJWT = await getPawnJWT(vaultToken)
+        console.log("[CreateWallet] Pawn JWT Fetched. Creating Wallet in Intermezzo...")
+
+        const wallet = await createWallet(pawnJWT, userId)
+        console.log("[CreateWallet] Wallet Created in Intermezzo:", wallet.public_address)
+
+        const { error: insertError } = await supabase.from("wallets").insert({
             supabase_user_id: userId,
             algo_address: wallet.public_address
         })
 
-        res.json({ address: wallet.public_address })
+        if (insertError) {
+            console.error("[CreateWallet] Supabase Insert Error:", insertError)
+            throw insertError
+        }
+
+        console.log("[CreateWallet] Success. Returning address.")
+        res.json({ address: wallet.public_address, public_address: wallet.public_address })
     } catch (error) {
-        console.error("Error creating wallet:", error)
-        res.status(500).json({ error: "Failed to create wallet" })
+        console.error("Error creating wallet:", error.response?.data || error.message)
+        res.status(500).json({ error: "Failed to create wallet", details: error.response?.data })
     }
 })
 

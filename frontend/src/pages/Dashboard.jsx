@@ -97,7 +97,7 @@ export default function Dashboard({ session }) {
                         ) : (
                             <div>
                                 <h2 className="mono" style={{ fontSize: '20px', wordBreak: 'break-all', marginBottom: '24px', maxWidth: '90%' }}>
-                                    {wallet?.public_address || 'Generation in progress...'}
+                                    {wallet?.address || 'Generation in progress...'}
                                 </h2>
 
                                 <div style={{ display: 'flex', gap: '12px' }}>
