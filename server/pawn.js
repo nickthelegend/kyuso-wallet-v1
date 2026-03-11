@@ -52,10 +52,10 @@ export async function getAssets(pawnJWT, userId) {
     return res.data
 }
 
-export async function transferAlgo(pawnJWT, fromUserId, toAddress, amount, note, lease) {
+export async function transferAlgo(pawnJWT, fromUserId, toAddress, amount, note, lease, fromAddress) {
     const res = await axios.post(
         `${process.env.PAWN_URL}/v1/wallet/transactions/transfer-algo`,
-        { fromUserId, toAddress, amount, note, lease },
+        { fromUserId, toAddress, amount, note, lease, fromAddress },
         { headers: { Authorization: `Bearer ${pawnJWT}` } }
     )
     return res.data
@@ -70,10 +70,10 @@ export async function transferAsset(pawnJWT, assetId, userId, amount, note, leas
     return res.data
 }
 
-export async function appCall(pawnJWT, fromUserId, appId, appArgs = []) {
+export async function appCall(pawnJWT, fromUserId, appId, appArgs = [], fromAddress) {
     const res = await axios.post(
         `${process.env.PAWN_URL}/v1/wallet/transactions/app-call`,
-        { fromUserId, appId, appArgs, onComplete: 0 },
+        { fromUserId, appId, appArgs, onComplete: 0, fromAddress },
         { headers: { Authorization: `Bearer ${pawnJWT}` } }
     )
     return res.data

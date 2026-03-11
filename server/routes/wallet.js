@@ -172,13 +172,29 @@ router.post("/sign", verifySupabase, async (req, res) => {
 
         if (isSingle && first.type === 'payment') {
             const p = first.payload
+            
+            // Get from address from DB to bypass Vault read permission issues
+            const { data: walletData } = await supabase
+                .from("wallets")
+                .select("algo_address")
+                .eq("supabase_user_id", userId)
+                .single()
+
             console.log("[Sign] Simple payment - using transfer-algo endpoint")
-            const txRes = await transferAlgo(pawnJWT, userId, p.toAddress, p.amount, p.note)
+            const txRes = await transferAlgo(pawnJWT, userId, p.toAddress, p.amount, p.note, undefined, walletData?.algo_address)
             result = { txId: txRes.transaction_id, signed_transactions: [txRes.transaction_id] }
         } else if (isSingle && first.type === 'appCall') {
             const p = first.payload
+
+            // Get from address from DB to bypass Vault read permission issues
+            const { data: walletData } = await supabase
+                .from("wallets")
+                .select("algo_address")
+                .eq("supabase_user_id", userId)
+                .single()
+
             console.log("[Sign] Simple App Call - using app-call endpoint")
-            const txRes = await appCall(pawnJWT, userId, p.appId, p.appArgs)
+            const txRes = await appCall(pawnJWT, userId, p.appId, p.appArgs, walletData?.algo_address)
             result = { txId: txRes.transaction_id, signed_transactions: [txRes.transaction_id] }
         } else {
             console.log("[Sign] Grouped or specialized txn - using group-transaction")
