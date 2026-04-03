@@ -83,9 +83,13 @@ export default function WalletRPC({ session }) {
     }
 
     const handleResponse = (data) => {
-        if (window.opener) {
-            window.opener.postMessage({ type: 'ALGO_WALLET_RESPONSE', ...data }, '*')
-            window.close()
+        const response = { type: 'ALGO_WALLET_RESPONSE', ...data };
+        
+        if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify(response));
+        } else if (window.opener) {
+            window.opener.postMessage(response, '*');
+            window.close();
         }
     }
 

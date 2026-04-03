@@ -21,13 +21,26 @@ export default function Login() {
     }
 
     const handleGoogleLogin = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
+        const isWebView = !!window.ReactNativeWebView;
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin
+                redirectTo: isWebView ? 'connectwalletexpoapp://auth' : window.location.origin,
+                skipBrowserRedirect: isWebView
             }
         })
-        if (error) setError(error.message)
+        
+        if (error) {
+            setError(error.message)
+            return
+        }
+
+        if (isWebView && data?.url) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'OPEN_AUTH_URL',
+                url: data.url
+            }));
+        }
     }
 
     return (
