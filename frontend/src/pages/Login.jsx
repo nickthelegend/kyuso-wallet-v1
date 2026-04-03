@@ -18,6 +18,10 @@ export default function Login() {
         setError(null)
         
         const isWebView = !!window.ReactNativeWebView;
+        const searchParams = new URLSearchParams(window.location.search);
+        const nativeRedirectUrl = searchParams.get('redirect_url');
+        
+        const redirectTo = nativeRedirectUrl || (isWebView ? 'connectwalletexpoapp://auth' : window.location.origin);
 
         try {
             if (mode === 'login') {
@@ -28,7 +32,7 @@ export default function Login() {
                     email, 
                     password,
                     options: {
-                        emailRedirectTo: isWebView ? 'connectwalletexpoapp://auth' : window.location.origin
+                        emailRedirectTo: redirectTo
                     }
                 })
                 if (error) throw error
@@ -43,12 +47,17 @@ export default function Login() {
 
     const handleGoogleLogin = async () => {
         const isWebView = !!window.ReactNativeWebView;
-        console.log("Starting Google Login, isWebView:", isWebView);
+        const searchParams = new URLSearchParams(window.location.search);
+        const nativeRedirectUrl = searchParams.get('redirect_url');
+        
+        const redirectTo = nativeRedirectUrl || (isWebView ? 'connectwalletexpoapp://auth' : window.location.origin);
+        
+        console.log("Starting Google Login. isWebView:", isWebView, "redirectTo:", redirectTo);
         
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: isWebView ? 'connectwalletexpoapp://auth' : window.location.origin,
+                redirectTo,
                 skipBrowserRedirect: isWebView
             }
         })
