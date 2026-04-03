@@ -10,6 +10,7 @@ function App() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        console.log("App loaded with search params:", window.location.search)
         // Debugging auth state transitions
         supabase.auth.onAuthStateChange((event, session) => {
             console.log("Auth event:", event)
@@ -49,9 +50,9 @@ function App() {
             <div className="bg-glow bg-glow-top"></div>
             <div className="bg-glow bg-glow-bottom"></div>
             <Routes>
-                <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
-                <Route path="/rpc" element={session ? <WalletRPC session={session} /> : <Navigate to="/login" />} />
-                <Route path="/" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
+                <Route path="/login" element={!session ? <Login /> : <Navigate to={`/${window.location.search}`} />} />
+                <Route path="/rpc" element={session ? <WalletRPC session={session} /> : <Navigate to={`/login${window.location.search}`} />} />
+                <Route path="/" element={session ? <Dashboard session={session} /> : <Navigate to={`/login${window.location.search}`} />} />
             </Routes>
         </Router>
     )
