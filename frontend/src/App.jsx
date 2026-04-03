@@ -10,16 +10,36 @@ function App() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session)
+        // Debugging auth state transitions
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log("Auth event:", event)
+            if (session) {
+                console.log("Logged in session:", session.user.email)
+                setSession(session)
+            } else {
+                console.log("No session")
+                setSession(null)
+            }
             setLoading(false)
         })
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session)
-        })
+        // Initial session fetch
+        const checkSession = async () => {
+            try {
+                // Explicit exchange for PKCE flows
+                if (window.location.search.includes('code=')) {
+                    await supabase.auth.exchangeCodeForSession(window.location.href)
+                }
+                const { data: { session } } = await supabase.auth.getSession()
+                setSession(session)
+            } catch (err) {
+                console.error("Session check error:", err)
+            } finally {
+                setLoading(false)
+            }
+        }
 
-        return () => subscription.unsubscribe()
+        checkSession()
     }, [])
 
     if (loading) return null
